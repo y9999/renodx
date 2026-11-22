@@ -18,10 +18,14 @@
 
 #include <windows.h>
 
+#include <psapi.h>
+
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -165,17 +169,31 @@ static void OnInitDevice(reshade::api::device* device) {
   if (device->get_api() != reshade::api::device_api::vulkan) return;
   if (internal::hooked_target != nullptr) return;
 
-  HMODULE loader = GetModuleHandleW(L"vulkan-1.dll");
-  if (loader == nullptr) {
-    reshade::log::message(reshade::log::level::error, "fefw: vulkan-1.dll is not loaded; stage chains are not copied.");
+  // The loader cannot resolve this device yet (init_device runs inside vkCreateDevice), so ask ReShade, the
+  // module that exports the add-on registration, for its own entry point.
+  HMODULE modules[1024];
+  DWORD modules_size = 0;
+  HMODULE reshade_module = nullptr;
+  if (K32EnumProcessModules(GetCurrentProcess(), modules, sizeof(modules), &modules_size) != FALSE) {
+    const DWORD module_count = std::min<DWORD>(modules_size / sizeof(HMODULE), std::size(modules));
+    for (DWORD i = 0; i < module_count && reshade_module == nullptr; ++i) {
+      if (GetProcAddress(modules[i], "ReShadeRegisterAddon") != nullptr) reshade_module = modules[i];
+    }
+  }
+  if (reshade_module == nullptr) {
+    reshade::log::message(reshade::log::level::error, "fefw: ReShade module not found; stage chains are not copied.");
     return;
   }
-  auto get_device_proc_addr = reinterpret_cast<vk::PFN_vkGetDeviceProcAddr>(
-      reinterpret_cast<void*>(GetProcAddress(loader, "vkGetDeviceProcAddr")));
-  if (get_device_proc_addr == nullptr) return;
 
-  void* native_device = reinterpret_cast<void*>(static_cast<uintptr_t>(device->get_native()));
-  void* target = get_device_proc_addr(native_device, "vkCreateGraphicsPipelines");
+  void* target = reinterpret_cast<void*>(GetProcAddress(reshade_module, "vkCreateGraphicsPipelines"));
+  if (target == nullptr) {
+    auto get_device_proc_addr = reinterpret_cast<vk::PFN_vkGetDeviceProcAddr>(
+        reinterpret_cast<void*>(GetProcAddress(reshade_module, "vkGetDeviceProcAddr")));
+    if (get_device_proc_addr != nullptr) {
+      target = get_device_proc_addr(reinterpret_cast<void*>(static_cast<uintptr_t>(device->get_native())),
+                                    "vkCreateGraphicsPipelines");
+    }
+  }
   if (target == nullptr) {
     reshade::log::message(reshade::log::level::error, "fefw: vkCreateGraphicsPipelines not found; stage chains are not copied.");
     return;
