@@ -1,0 +1,11 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/clshortfuse/renodx/renodx-metadata-schema.json",
+  "id": "fefw-obelisk",
+  "title": "Fire Emblem: Fortune's Weave (Obelisk Chamber)",
+  "status": "experimental",
+  "summary": "PsychoV17 scene tone mapping, SDR-accurate color space and UI brightness for the game's native HDR on the Obelisk Chamber recompilation (Vulkan).",
+  "deploy": {
+    "api": "vulkan",
+    "architecture": ["x64"]
+  }
+}
