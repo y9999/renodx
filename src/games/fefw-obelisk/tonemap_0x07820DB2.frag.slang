@@ -1,11 +1,11 @@
 #version 450
-#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_scalar_block_layout : require
 
 // Scene tone map (draw before sharpening and the UI composite). Decompiled with SPIRV-Cross from the
-// SPIR-V Obelisk Chamber 0.3.1 hands to Vulkan.
+// SPIR-V Obelisk Chamber 0.3.1 hands to Vulkan; compiled by Slang so the HLSL PsychoV35 can be included.
 #include "./shared.h"
-#include "../doom-tda/include/psychov_17.glsl"
+#include "../../shaders/tonemap/psychov/test17.hlsl"
+#include "../../shaders/tonemap/psychov/test35.hlsl"
 
 layout(set = 0, binding = 0, std140) uniform support_buffer
 {
@@ -28,6 +28,18 @@ layout(set = 2, binding = 128) uniform sampler2D fp_t_tcb_8;
 
 layout(location = 0) in vec4 _29;
 layout(location = 0) out vec4 _32;
+
+// CUSTOM: The original per-channel curve for one value, without its output scale c[2].y:
+// power toe and linear middle blended by smoothstep, then the exponential shoulder from shoulder_start.
+float VanillaCurve(float x, float inverse_toe_end, float shoulder_scale, float shoulder_start, float shoulder_rate) {
+    float toe_t = clamp(x * inverse_toe_end, 0.0, 1.0);
+    float toe_blend = toe_t * toe_t * fma(toe_t, -2.0, 3.0);
+    float in_shoulder = float(x >= shoulder_start);
+    float toe = exp2(log2(x * inverse_toe_end) * fp_c3_1._m0[0].w) * fp_c3_1._m0[0].y;
+    float linear = fma(x - fp_c3_1._m0[0].y, fp_c3_1._m0[0].x, fp_c3_1._m0[0].y);
+    float shoulder = fma(-shoulder_scale, exp2((x - shoulder_start) * shoulder_rate), fp_c3_1._m0[2].x);
+    return in_shoulder * shoulder + (toe_blend - in_shoulder) * linear + (1.0 - toe_blend) * toe;
+}
 
 void main()
 {
@@ -113,29 +125,33 @@ void main()
 
     // CUSTOM: Scene tone mapping and color space; the original curve above is kept as the Vanilla path.
     vec3 tonemapped = vanilla_output;
-    if (RENODX_TONE_MAP_TYPE == RENODX_TONE_MAP_TYPE_PSYCHOV) {
-        // The original per-channel curve at mid grey anchors PsychoV's exposure, so mid tones match Vanilla.
-        float midgray_toe_t = clamp(0.18 * _50, 0.0, 1.0);
-        float midgray_smooth = midgray_toe_t * midgray_toe_t * fma(midgray_toe_t, -2.0, 3.0);
-        float midgray_in_shoulder = float(0.18 >= _62);
-        float midgray_toe = exp2(log2(0.18 * _50) * fp_c3_1._m0[0].w) * fp_c3_1._m0[0].y;
-        float midgray_linear = fma(0.18 - fp_c3_1._m0[0].y, fp_c3_1._m0[0].x, fp_c3_1._m0[0].y);
-        float midgray_shoulder = fma(-_54, exp2((0.18 - _62) * _70), fp_c3_1._m0[2].x);
-        float midgray_curve = midgray_in_shoulder * midgray_shoulder
-                              + (midgray_smooth - midgray_in_shoulder) * midgray_linear
-                              + (1.0 - midgray_smooth) * midgray_toe;
-        vec3 psychov_output = psychov_17(
-            _42.xyz,
-            fp_c3_1._m0[2].x * shader_injection.tone_map_peak_scale,
-            (midgray_curve / 0.18) * shader_injection.tone_map_exposure,
-            shader_injection.tone_map_highlights,
-            shader_injection.tone_map_shadows,
-            shader_injection.tone_map_contrast,
-            shader_injection.tone_map_saturation,
-            1.0, 100.0, 1.0, 1.0, 0, 1.0,
-            vec3(0.18), vec3(0.18),
-            1.0, 1, 1.0);
-        tonemapped = psychov_output * fp_c3_1._m0[2].y;
+    if (RENODX_TONE_MAP_TYPE != RENODX_TONE_MAP_TYPE_VANILLA) {
+        // Where the original curve puts mid grey anchors PsychoV, so mid tones match Vanilla.
+        float midgray_out = VanillaCurve(0.18, _50, _54, _62, _70) * shader_injection.tone_map_exposure;
+        float peak = fp_c3_1._m0[2].x * shader_injection.tone_map_peak_scale;
+        if (RENODX_TONE_MAP_TYPE == RENODX_TONE_MAP_TYPE_PSYCHOV17) {
+            tonemapped = renodx::tonemap::psychov::psychotm_test17(
+                _42.xyz, peak, midgray_out / 0.18,
+                shader_injection.tone_map_highlights, shader_injection.tone_map_shadows,
+                shader_injection.tone_map_contrast, shader_injection.tone_map_saturation,
+                1.0, 100.0, 1.0, 1.0, 0, 1.0, vec3(0.18), vec3(0.18), 1.0, 1, 1.0);
+        } else {
+            // Cone response from the original curve's log slope over half a stop around mid grey.
+            float cone = 1.0;
+            if (shader_injection.tone_map_vanilla_contrast != 0.0) {
+                cone = clamp(2.0 * log2(VanillaCurve(0.18 * 1.18920712, _50, _54, _62, _70)
+                                        / VanillaCurve(0.18 / 1.18920712, _50, _54, _62, _70)),
+                             0.5, 2.5);
+            }
+            // Fitted to the BT.2020 display gamut; colors outside BT.709 come back as negative components.
+            // PsychoV35 needs its output anchor below the peak.
+            tonemapped = renodx::tonemap::psychov::psychotm_test35(
+                _42.xyz, peak, 1.0,
+                shader_injection.tone_map_highlights, shader_injection.tone_map_shadows,
+                shader_injection.tone_map_contrast, shader_injection.tone_map_saturation,
+                1.0, 100.0, 1.0, 1.0, 0, cone, vec3(0.18), vec3(min(midgray_out, 0.95 * peak)), 1.0, 1, 1.0, 1.0);
+        }
+        tonemapped *= fp_c3_1._m0[2].y;
     }
     if (RENODX_SCENE_COLOR_SPACE == RENODX_COLOR_SPACE_BT709) {
         tonemapped = FEFW_BT2020_FROM_BT709 * tonemapped;

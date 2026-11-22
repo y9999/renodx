@@ -36,7 +36,7 @@ renodx::mods::shader::CustomShaders custom_shaders = {
 };
 
 bool IsPsychoVEnabled() {
-  return shader_injection.tone_map_type == RENODX_TONE_MAP_TYPE_PSYCHOV;
+  return shader_injection.tone_map_type != RENODX_TONE_MAP_TYPE_VANILLA;
 }
 
 renodx::utils::settings::Settings settings = {
@@ -44,11 +44,12 @@ renodx::utils::settings::Settings settings = {
         .key = "ToneMapType",
         .binding = &shader_injection.tone_map_type,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
-        .default_value = 1.f,
+        .default_value = 2.f,
         .label = "Tonemapper",
         .section = "Tone Mapping",
-        .tooltip = "Vanilla keeps the game's per-channel curve. PsychoV17 keeps hues and maps highlights to the peak.",
-        .labels = {"Vanilla", "PsychoV17"},
+        .tooltip = "Vanilla keeps the game's per-channel curve. PsychoV keeps hues and maps highlights to the peak;"
+                   " PsychoV35 is the current version and also fits colors to the BT.2020 display gamut.",
+        .labels = {"Vanilla", "PsychoV17", "PsychoV35"},
     },
     new renodx::utils::settings::Setting{
         .key = "ToneMapPeakScale",
@@ -110,6 +111,16 @@ renodx::utils::settings::Settings settings = {
         .parse = [](float value) { return value * 0.02f; },
     },
     new renodx::utils::settings::Setting{
+        .key = "ToneMapVanillaContrast",
+        .binding = &shader_injection.tone_map_vanilla_contrast,
+        .value_type = renodx::utils::settings::SettingValueType::BOOLEAN,
+        .default_value = 1.f,
+        .label = "Vanilla Contrast",
+        .section = "Tone Mapping",
+        .tooltip = "PsychoV35 takes the contrast of the game's curve around mid grey instead of its own.",
+        .is_enabled = []() { return shader_injection.tone_map_type == RENODX_TONE_MAP_TYPE_PSYCHOV35; },
+    },
+    new renodx::utils::settings::Setting{
         .key = "SceneColorSpace",
         .binding = &shader_injection.scene_color_space,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
@@ -164,6 +175,7 @@ void OnPresetOff() {
       {"ToneMapShadows", 50.f},
       {"ToneMapContrast", 50.f},
       {"ToneMapSaturation", 50.f},
+      {"ToneMapVanillaContrast", 1.f},
       {"SceneColorSpace", 0.f},
       {"UIColorSpace", 0.f},
       {"UIBrightness", 100.f},

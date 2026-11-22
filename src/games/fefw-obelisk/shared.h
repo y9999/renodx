@@ -1,8 +1,9 @@
 #ifndef SRC_GAMES_FEFW_OBELISK_SHARED_H_
 #define SRC_GAMES_FEFW_OBELISK_SHARED_H_
 
-#define RENODX_TONE_MAP_TYPE_VANILLA  0.f
-#define RENODX_TONE_MAP_TYPE_PSYCHOV  1.f
+#define RENODX_TONE_MAP_TYPE_VANILLA   0.f
+#define RENODX_TONE_MAP_TYPE_PSYCHOV17 1.f
+#define RENODX_TONE_MAP_TYPE_PSYCHOV35 2.f
 #define RENODX_COLOR_SPACE_VANILLA    0.f
 #define RENODX_COLOR_SPACE_BT709      1.f
 
@@ -14,6 +15,7 @@ struct ShaderInjectData {
   float tone_map_shadows;
   float tone_map_contrast;
   float tone_map_saturation;
+  float tone_map_vanilla_contrast;
   float scene_color_space;
   float ui_color_space;
   float ui_brightness;
@@ -21,7 +23,7 @@ struct ShaderInjectData {
 };
 
 #ifdef __cplusplus
-static_assert(sizeof(ShaderInjectData) == 11u * sizeof(float));
+static_assert(sizeof(ShaderInjectData) == 12u * sizeof(float));
 #else
 // Obelisk's Ryujinx-derived layouts use descriptor sets 0 to 3; the addon appends set 4.
 layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
