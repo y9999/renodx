@@ -20,6 +20,7 @@
 #include "../../mods/shader.hpp"
 #include "../../utils/settings.hpp"
 #include "./shared.h"
+#include "./stage_chain_copy.hpp"
 
 namespace {
 
@@ -201,6 +202,7 @@ BOOL APIENTRY DllMain(HMODULE h_module, DWORD reason, [[maybe_unused]] LPVOID re
         });
       }
       reshade::register_event<reshade::addon_event::reshade_present>(OnReShadePresent);
+      fefw::stage_chain_copy::Use(reason);
       renodx::utils::settings::Use(reason, &settings, &OnPresetOff);
       renodx::mods::shader::Use(reason, custom_shaders);
       break;
@@ -209,6 +211,7 @@ BOOL APIENTRY DllMain(HMODULE h_module, DWORD reason, [[maybe_unused]] LPVOID re
       if (addon_registered) {
         renodx::mods::shader::Use(reason, custom_shaders);
         renodx::utils::settings::Use(reason, &settings, &OnPresetOff);
+        fefw::stage_chain_copy::Use(reason);
         reshade::unregister_event<reshade::addon_event::reshade_present>(OnReShadePresent);
         reshade::unregister_addon(h_module);
       }
