@@ -44,12 +44,13 @@ renodx::utils::settings::Settings settings = {
         .key = "ToneMapType",
         .binding = &shader_injection.tone_map_type,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
-        .default_value = 2.f,
+        .default_value = 3.f,
         .label = "Tonemapper",
         .section = "Tone Mapping",
         .tooltip = "Vanilla keeps the game's per-channel curve. PsychoV keeps hues and maps highlights to the peak;"
-                   " PsychoV35 is the current version and also fits colors to the BT.2020 display gamut.",
-        .labels = {"Vanilla", "PsychoV17", "PsychoV35"},
+                   " PsychoV35 is the current version and also fits colors to the BT.2020 display gamut."
+                   " Vanilla+ is Vanilla up to about 100 nits and PsychoV35 from about 400 nits.",
+        .labels = {"Vanilla", "PsychoV17", "PsychoV35", "Vanilla+"},
     },
     new renodx::utils::settings::Setting{
         .key = "ToneMapPeakScale",
@@ -118,7 +119,10 @@ renodx::utils::settings::Settings settings = {
         .label = "Vanilla Contrast",
         .section = "Tone Mapping",
         .tooltip = "PsychoV35 takes the contrast of the game's curve around mid grey instead of its own.",
-        .is_enabled = []() { return shader_injection.tone_map_type == RENODX_TONE_MAP_TYPE_PSYCHOV35; },
+        .is_enabled = []() {
+          return shader_injection.tone_map_type == RENODX_TONE_MAP_TYPE_PSYCHOV35
+                 || shader_injection.tone_map_type == RENODX_TONE_MAP_TYPE_VANILLA_PLUS;
+        },
     },
     new renodx::utils::settings::Setting{
         .key = "HueClipEmulation",
@@ -126,7 +130,8 @@ renodx::utils::settings::Settings settings = {
         .default_value = 100.f,
         .label = "Hue Clip Emulation",
         .section = "Tone Mapping",
-        .tooltip = "Takes the hues of the SDR picture, where the game's curve clips each channel on its own.",
+        .tooltip = "Takes the hues of the SDR picture, where the game's curve clips each channel on its own,"
+                   " fading out from about 100 to 400 nits so highlights keep their own hues.",
         .parse = [](float value) { return value * 0.01f; },
     },
     new renodx::utils::settings::Setting{
@@ -160,6 +165,16 @@ renodx::utils::settings::Settings settings = {
         .tooltip = "2.2 shows shadows and dark colors as the SDR picture looks on a gamma 2.2 display."
                    " Off keeps the game's sRGB-relative values. Applies to the UI with UI Color Space BT.709.",
         .labels = {"Off", "2.2"},
+    },
+    new renodx::utils::settings::Setting{
+        .key = "ClipNegativeColors",
+        .binding = &shader_injection.clip_negative_colors,
+        .value_type = renodx::utils::settings::SettingValueType::BOOLEAN,
+        .default_value = 1.f,
+        .label = "Clip Negative Colors",
+        .section = "Color",
+        .tooltip = "Drops scene colors past BT.709 as the SDR output does. The game's HDR curve turns them into the"
+                   " opposite colors, which washes colors out.",
     },
     new renodx::utils::settings::Setting{
         .key = "UIBrightness",
@@ -200,6 +215,7 @@ void OnPresetOff() {
       {"SceneColorSpace", 0.f},
       {"UIColorSpace", 0.f},
       {"SDREOTFEmulation", 0.f},
+      {"ClipNegativeColors", 0.f},
       {"UIBrightness", 100.f},
   });
 }

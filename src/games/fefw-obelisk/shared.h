@@ -4,6 +4,7 @@
 #define RENODX_TONE_MAP_TYPE_VANILLA   0.f
 #define RENODX_TONE_MAP_TYPE_PSYCHOV17 1.f
 #define RENODX_TONE_MAP_TYPE_PSYCHOV35 2.f
+#define RENODX_TONE_MAP_TYPE_VANILLA_PLUS 3.f
 #define RENODX_COLOR_SPACE_VANILLA    0.f
 #define RENODX_COLOR_SPACE_BT709      1.f
 
@@ -20,12 +21,13 @@ struct ShaderInjectData {
   float scene_color_space;
   float ui_color_space;
   float sdr_eotf_emulation;
+  float clip_negative_colors;
   float ui_brightness;
   float compare_vanilla;
 };
 
 #ifdef __cplusplus
-static_assert(sizeof(ShaderInjectData) == 14u * sizeof(float));
+static_assert(sizeof(ShaderInjectData) == 15u * sizeof(float));
 #else
 // Obelisk's Ryujinx-derived layouts use descriptor sets 0 to 3; the addon appends set 4.
 layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
@@ -38,6 +40,7 @@ layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
 #define RENODX_UI_COLOR_SPACE (RENODX_COMPARE_VANILLA ? RENODX_COLOR_SPACE_VANILLA : shader_injection.ui_color_space)
 #define RENODX_UI_BRIGHTNESS (RENODX_COMPARE_VANILLA ? 1.0 : shader_injection.ui_brightness)
 #define RENODX_HUE_CLIP_EMULATION (RENODX_COMPARE_VANILLA ? 0.0 : shader_injection.hue_clip_emulation)
+#define RENODX_CLIP_NEGATIVE_COLORS (!RENODX_COMPARE_VANILLA && shader_injection.clip_negative_colors != 0.0)
 #define RENODX_SDR_EOTF_EMULATION (!RENODX_COMPARE_VANILLA && shader_injection.sdr_eotf_emulation != 0.0)
 
 // BT.709 -> BT.2020, GLSL column-major.
