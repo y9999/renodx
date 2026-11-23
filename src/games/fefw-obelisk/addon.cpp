@@ -135,15 +135,15 @@ renodx::utils::settings::Settings settings = {
         .parse = [](float value) { return value * 0.01f; },
     },
     new renodx::utils::settings::Setting{
-        .key = "SceneColorSpace",
-        .binding = &shader_injection.scene_color_space,
+        .key = "SceneGamut",
+        .binding = &shader_injection.scene_gamut,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
         .default_value = 1.f,
-        .label = "Scene Color Space",
+        .label = "Scene Gamut",
         .section = "Color",
-        .tooltip = "Vanilla sends the scene's colors to the display as BT.2020 unchanged."
-                   " BT.709 converts them, as in the SDR picture.",
-        .labels = {"Vanilla", "BT.709"},
+        .tooltip = "The scene is rendered in BT.2020. BT.709 (SDR) drops colors past BT.709 as the SDR tone map does,"
+                   " fading out from about 100 to 400 nits. BT.2020 keeps them, as the game's HDR output does.",
+        .labels = {"BT.2020", "BT.709 (SDR)"},
     },
     new renodx::utils::settings::Setting{
         .key = "UIColorSpace",
@@ -165,16 +165,6 @@ renodx::utils::settings::Settings settings = {
         .tooltip = "2.2 shows shadows and dark colors as the SDR picture looks on a gamma 2.2 display."
                    " Off keeps the game's sRGB-relative values. Applies to the UI with UI Color Space BT.709.",
         .labels = {"Off", "2.2"},
-    },
-    new renodx::utils::settings::Setting{
-        .key = "ClipNegativeColors",
-        .binding = &shader_injection.clip_negative_colors,
-        .value_type = renodx::utils::settings::SettingValueType::BOOLEAN,
-        .default_value = 1.f,
-        .label = "Clip Negative Colors",
-        .section = "Color",
-        .tooltip = "Drops scene colors past BT.709 as the SDR output does. The game's HDR curve turns them into the"
-                   " opposite colors, which washes colors out.",
     },
     new renodx::utils::settings::Setting{
         .key = "UIBrightness",
@@ -212,10 +202,9 @@ void OnPresetOff() {
       {"ToneMapSaturation", 50.f},
       {"ToneMapVanillaContrast", 1.f},
       {"HueClipEmulation", 0.f},
-      {"SceneColorSpace", 0.f},
+      {"SceneGamut", 0.f},
       {"UIColorSpace", 0.f},
       {"SDREOTFEmulation", 0.f},
-      {"ClipNegativeColors", 0.f},
       {"UIBrightness", 100.f},
   });
 }

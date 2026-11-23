@@ -130,18 +130,16 @@ void main()
     precise float _388 = fma(_76, fma(-_54, exp2(_349), fp_c3_1._m0[2].x), fma(fma(_88, -_90, 1.0), _367, _383)) * fp_c3_1._m0[2].y;
     vanilla_output.z = _388;
 
-    // CUSTOM: Scene tone mapping and color space; the original curve above is kept as the Vanilla path.
-    // The SDR output drops negative channels (colors past BT.709), but the original HDR curve's toe takes their
-    // magnitude, which adds the opposite colors and washes colors out.
-    vec3 scene = RENODX_CLIP_NEGATIVE_COLORS ? max(_42.xyz, vec3(0.0)) : _42.xyz;
-    vec3 vanilla = RENODX_CLIP_NEGATIVE_COLORS
-        ? vec3(VanillaCurve(scene.x, _50, _54, _62, _70),
-               VanillaCurve(scene.y, _50, _54, _62, _70),
-               VanillaCurve(scene.z, _50, _54, _62, _70))
-              * fp_c3_1._m0[2].y
-        : vanilla_output;
+    // CUSTOM: Scene tone mapping and gamut; the original curve above is kept as the Vanilla path. The scene is
+    // BT.2020 (the SDR tone map converts it to BT.709); the steps below work in BT.709 like the SDR picture.
+    if (RENODX_COMPARE_VANILLA) {
+        _32 = vec4(vanilla_output, _42.w);
+        return;
+    }
+    vec3 vanilla = FEFW_BT709_FROM_BT2020 * vanilla_output;
     vec3 tonemapped = vanilla;
     if (RENODX_TONE_MAP_TYPE != RENODX_TONE_MAP_TYPE_VANILLA) {
+        vec3 scene = FEFW_BT709_FROM_BT2020 * _42.xyz;
         // Where the original curve puts mid grey anchors PsychoV, so mid tones match Vanilla.
         float midgray_out = VanillaCurve(0.18, _50, _54, _62, _70) * shader_injection.tone_map_exposure;
         float peak = fp_c3_1._m0[2].x * shader_injection.tone_map_peak_scale;
@@ -173,19 +171,19 @@ void main()
             tonemapped = mix(vanilla, tonemapped, HighlightWeight(vanilla));
         }
     }
+    // Where the SDR picture is the reference: its gamut (negative BT.709 channels dropped) and its hues (each
+    // channel clipped at SDR white, 1.0 here). The highlights keep their own colors.
+    float sdr_weight = 1.0 - HighlightWeight(tonemapped);
+    if (RENODX_SCENE_GAMUT_SDR) {
+        tonemapped = mix(tonemapped, max(tonemapped, vec3(0.0)), sdr_weight);
+    }
     if (RENODX_HUE_CLIP_EMULATION > 0.0) {
-        // Hues of the SDR picture (the original curve per channel, clipped at SDR white, 1.0 here) where it is
-        // the reference; the highlights keep their own hues.
         tonemapped = renodx::color::correct::HueOKLab(
-            tonemapped, clamp(vanilla, 0.0, 1.0),
-            RENODX_HUE_CLIP_EMULATION * (1.0 - HighlightWeight(tonemapped)));
+            tonemapped, clamp(vanilla, 0.0, 1.0), RENODX_HUE_CLIP_EMULATION * sdr_weight);
     }
     if (RENODX_SDR_EOTF_EMULATION) {
         tonemapped = FefwEmulateGamma22(tonemapped);
     }
-    if (RENODX_SCENE_COLOR_SPACE == RENODX_COLOR_SPACE_BT709) {
-        tonemapped = FEFW_BT2020_FROM_BT709 * tonemapped;
-    }
     // R11G11B10F cannot hold negative values.
-    _32 = vec4(max(tonemapped, vec3(0.0)), _42.w);
+    _32 = vec4(max(FEFW_BT2020_FROM_BT709 * tonemapped, vec3(0.0)), _42.w);
 }
