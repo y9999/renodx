@@ -173,13 +173,14 @@ void main()
     }
     // Where the SDR picture is the reference: its gamut (negative BT.709 channels dropped) and its hues (each
     // channel clipped at SDR white, 1.0 here). The highlights keep their own colors.
+    // The gamut comes last: the hue correction keeps chrominance and can leave BT.709.
     float sdr_weight = 1.0 - HighlightWeight(tonemapped);
-    if (RENODX_SCENE_GAMUT_SDR) {
-        tonemapped = mix(tonemapped, max(tonemapped, vec3(0.0)), sdr_weight);
-    }
     if (RENODX_HUE_CLIP_EMULATION > 0.0) {
         tonemapped = renodx::color::correct::HueOKLab(
             tonemapped, clamp(vanilla, 0.0, 1.0), RENODX_HUE_CLIP_EMULATION * sdr_weight);
+    }
+    if (RENODX_SCENE_GAMUT_SDR) {
+        tonemapped = mix(tonemapped, max(tonemapped, vec3(0.0)), sdr_weight);
     }
     if (RENODX_SDR_EOTF_EMULATION) {
         tonemapped = FefwEmulateGamma22(tonemapped);
