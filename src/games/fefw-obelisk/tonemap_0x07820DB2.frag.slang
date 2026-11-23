@@ -30,29 +30,30 @@ layout(set = 2, binding = 128) uniform sampler2D fp_t_tcb_8;
 layout(location = 0) in vec4 _29;
 layout(location = 0) out vec4 _32;
 
-// CUSTOM: The original per-channel curve for one value, without its output scale c[2].y:
-// power toe and linear middle blended by smoothstep, then the exponential shoulder from shoulder_start.
-float VanillaCurve(float x, float inverse_toe_end, float shoulder_scale, float shoulder_start, float shoulder_rate) {
-    float toe_t = clamp(x * inverse_toe_end, 0.0, 1.0);
+// CUSTOM: The original per-channel curve (power toe and linear middle blended by smoothstep, then an
+// exponential shoulder toward `peak`), without its output scale. The game passes the same c[0] in both modes;
+// HDR sets peak c[2].x to the display peak and scale c[2].y to 1, SDR sets 4/3 and 0.75 (read back with
+// Show Curve Parameters). One unit is the same luminance in both, and SDR white is 4/3 units.
+const float SDR_PEAK = 4.0 / 3.0;
+const float SDR_SCALE = 0.75;
+
+float ToneCurve(float x, float peak) {
+    vec4 c0 = fp_c3_1._m0[0];  // slope, toe end, shoulder start fraction, toe power
+    float toe_t = clamp(x / c0.y, 0.0, 1.0);
     float toe_blend = toe_t * toe_t * fma(toe_t, -2.0, 3.0);
+    float shoulder_start = c0.y + (peak - c0.y) * c0.z / c0.x;
+    float shoulder_scale = peak - fma(shoulder_start - c0.y, c0.x, c0.y);
     float in_shoulder = float(x >= shoulder_start);
-    float toe = exp2(log2(max(x * inverse_toe_end, 1e-30)) * fp_c3_1._m0[0].w) * fp_c3_1._m0[0].y;
-    float linear = fma(x - fp_c3_1._m0[0].y, fp_c3_1._m0[0].x, fp_c3_1._m0[0].y);
-    float shoulder = fma(-shoulder_scale, exp2((x - shoulder_start) * shoulder_rate), fp_c3_1._m0[2].x);
+    float toe = exp2(log2(max(x / c0.y, 1e-30)) * c0.w) * c0.y;
+    float linear = fma(x - c0.y, c0.x, c0.y);
+    float shoulder = peak - shoulder_scale * exp2((x - shoulder_start) * (-c0.x / shoulder_scale) * 1.44269504);
     return in_shoulder * shoulder + (toe_blend - in_shoulder) * linear + (1.0 - toe_blend) * toe;
 }
 
 // CUSTOM: 0 up to about 100 nits (half of SDR white), 1 from about 400 nits (twice SDR white): where the SDR
 // picture stops being the reference and the HDR highlights begin.
 float HighlightWeight(vec3 color) {
-    return smoothstep(0.5, 2.0, dot(color, vec3(0.2126, 0.7152, 0.0722)));
-}
-
-// CUSTOM: The SDR output's per-channel shoulder (1.0 = SDR white), fitted to SDR and HDR captures of the same
-// scene: linear up to 0.6, then an exponential roll-off toward 1.16 that the SDR output clips at 1.0.
-vec3 SdrShoulder(vec3 color) {
-    vec3 roll_off = 0.6 + 0.56 * (1.0 - exp((0.6 - color) * (0.65 / 0.56)));
-    return min(mix(color, roll_off, step(vec3(0.6), color)), vec3(1.0));
+    return smoothstep(0.5 * SDR_PEAK, 2.0 * SDR_PEAK, dot(color, vec3(0.2126, 0.7152, 0.0722)));
 }
 
 void main()
@@ -153,7 +154,7 @@ void main()
     if (RENODX_TONE_MAP_TYPE != RENODX_TONE_MAP_TYPE_VANILLA) {
         vec3 scene = FEFW_BT709_FROM_BT2020 * _42.xyz;
         // Where the original curve puts mid grey anchors PsychoV, so mid tones match Vanilla.
-        float midgray_out = VanillaCurve(0.18, _50, _54, _62, _70) * shader_injection.tone_map_exposure;
+        float midgray_out = ToneCurve(0.18, fp_c3_1._m0[2].x) * shader_injection.tone_map_exposure;
         float peak = fp_c3_1._m0[2].x * shader_injection.tone_map_peak_scale;
         if (RENODX_TONE_MAP_TYPE == RENODX_TONE_MAP_TYPE_PSYCHOV17) {
             tonemapped = renodx::tonemap::psychov::psychotm_test17(
@@ -165,8 +166,8 @@ void main()
             // Cone response from the original curve's log slope over half a stop around mid grey.
             float cone = 1.0;
             if (shader_injection.tone_map_vanilla_contrast != 0.0) {
-                cone = clamp(2.0 * log2(VanillaCurve(0.18 * 1.18920712, _50, _54, _62, _70)
-                                        / VanillaCurve(0.18 / 1.18920712, _50, _54, _62, _70)),
+                cone = clamp(2.0 * log2(ToneCurve(0.18 * 1.18920712, fp_c3_1._m0[2].x)
+                                        / ToneCurve(0.18 / 1.18920712, fp_c3_1._m0[2].x)),
                              0.5, 2.5);
             }
             // Fitted to the BT.2020 display gamut; colors outside BT.709 come back as negative components.
@@ -183,11 +184,14 @@ void main()
             tonemapped = mix(vanilla, tonemapped, HighlightWeight(vanilla));
         }
     }
-    // Where the SDR picture is the reference: its hues and saturation (each channel through the SDR shoulder),
-    // then its gamut (negative BT.709 channels dropped). The highlights keep their own colors.
+    // Where the SDR picture is the reference: its hues and saturation (the SDR tone map: the curve with the SDR
+    // peak and scale, then BT.709 without negative channels), then its gamut. The highlights keep their colors.
     float sdr_weight = 1.0 - HighlightWeight(tonemapped);
     if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
-        vec3 sdr_reference = SdrShoulder(max(vanilla, vec3(0.0)));
+        vec3 sdr_reference = clamp(
+            FEFW_BT709_FROM_BT2020
+                * vec3(ToneCurve(_44, SDR_PEAK), ToneCurve(_46, SDR_PEAK), ToneCurve(_48, SDR_PEAK)),
+            0.0, SDR_PEAK);
         // Brought to the result's luminance: the SDR picture's saturation, not its lower level.
         float reference_luminance = dot(sdr_reference, vec3(0.2126, 0.7152, 0.0722));
         if (reference_luminance > 0.0) {
@@ -201,7 +205,7 @@ void main()
         tonemapped = mix(tonemapped, max(tonemapped, vec3(0.0)), sdr_weight);
     }
     if (RENODX_SDR_EOTF_EMULATION) {
-        tonemapped = FefwEmulateGamma22(tonemapped);
+        tonemapped = FefwEmulateGamma22(tonemapped * SDR_SCALE) / SDR_SCALE;  // relative to SDR white
     }
     // R11G11B10F cannot hold negative values.
     _32 = vec4(max(FEFW_BT2020_FROM_BT709 * tonemapped, vec3(0.0)), _42.w);
