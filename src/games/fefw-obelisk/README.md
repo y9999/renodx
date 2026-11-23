@@ -7,7 +7,7 @@ Needs ReShade with full add-on support, set up for `ObeliskChamber.exe` with the
 
 | Hash | Pass | Change |
 |---|---|---|
-| `0x07820DB2` | Scene tone map | PsychoV35 (or PsychoV17) in place of the game's per-channel curve, anchored to the curve's own mid grey and peak, PsychoV35 optionally with the curve's contrast at mid grey; scene colors converted BT.709 -> BT.2020 |
+| `0x07820DB2` | Scene tone map | PsychoV35 (or PsychoV17) in place of the game's per-channel curve, anchored to the curve's own mid grey and peak, PsychoV35 optionally with the curve's contrast at mid grey; hues of the SDR picture (Hue Clip Emulation), SDR EOTF 2.2 emulation; scene colors converted BT.709 -> BT.2020 |
 | `0xE0A1145E` | UI composite | Exact BT.709 -> BT.2020 UI conversion in place of the game's wide-gamut matrix; UI brightness |
 
 The final PQ encode (`0x250F769E`) is left as the game's. F10 switches every change off and on for comparison.

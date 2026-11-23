@@ -6,6 +6,7 @@
 #include "./shared.h"
 #include "../../shaders/tonemap/psychov/test17.hlsl"
 #include "../../shaders/tonemap/psychov/test35.hlsl"
+#include "../../shaders/colorcorrect.hlsl"
 
 layout(set = 0, binding = 0, std140) uniform support_buffer
 {
@@ -152,6 +153,20 @@ void main()
                 1.0, 100.0, 1.0, 1.0, 0, cone, vec3(0.18), vec3(min(midgray_out, 0.95 * peak)), 1.0, 1, 1.0, 1.0);
         }
         tonemapped *= fp_c3_1._m0[2].y;
+    }
+    if (RENODX_HUE_CLIP_EMULATION > 0.0) {
+        // Hues of the SDR picture: the original curve per channel, without negative channels and clipped at
+        // SDR white (1.0 here), as the SDR output stores them.
+        vec3 sdr_reference = clamp(
+            vec3(VanillaCurve(max(_44, 0.0), _50, _54, _62, _70),
+                 VanillaCurve(max(_46, 0.0), _50, _54, _62, _70),
+                 VanillaCurve(max(_48, 0.0), _50, _54, _62, _70))
+                * fp_c3_1._m0[2].y,
+            0.0, 1.0);
+        tonemapped = renodx::color::correct::HueOKLab(tonemapped, sdr_reference, RENODX_HUE_CLIP_EMULATION);
+    }
+    if (RENODX_SDR_EOTF_EMULATION) {
+        tonemapped = FefwEmulateGamma22(tonemapped);
     }
     if (RENODX_SCENE_COLOR_SPACE == RENODX_COLOR_SPACE_BT709) {
         tonemapped = FEFW_BT2020_FROM_BT709 * tonemapped;

@@ -50,7 +50,8 @@ void main()
     // CUSTOM: UI color space and brightness; the game's own matrix above is kept as the Vanilla path.
     vec3 ui_color = vec3(_97, _110, _124);
     if (RENODX_UI_COLOR_SPACE == RENODX_COLOR_SPACE_BT709) {
-        ui_color = (FEFW_BT2020_FROM_BT709 * _42.xyz) * fp_c3_1._m0[0].x;
+        vec3 ui_bt709 = RENODX_SDR_EOTF_EMULATION ? FefwEmulateGamma22(_42.xyz) : _42.xyz;
+        ui_color = (FEFW_BT2020_FROM_BT709 * ui_bt709) * fp_c3_1._m0[0].x;
     }
     _32 = vec4(ui_color * RENODX_UI_BRIGHTNESS, _42.w);
 }

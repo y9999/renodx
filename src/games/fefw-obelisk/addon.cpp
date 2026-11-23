@@ -121,6 +121,15 @@ renodx::utils::settings::Settings settings = {
         .is_enabled = []() { return shader_injection.tone_map_type == RENODX_TONE_MAP_TYPE_PSYCHOV35; },
     },
     new renodx::utils::settings::Setting{
+        .key = "HueClipEmulation",
+        .binding = &shader_injection.hue_clip_emulation,
+        .default_value = 100.f,
+        .label = "Hue Clip Emulation",
+        .section = "Tone Mapping",
+        .tooltip = "Takes the hues of the SDR picture, where the game's curve clips each channel on its own.",
+        .parse = [](float value) { return value * 0.01f; },
+    },
+    new renodx::utils::settings::Setting{
         .key = "SceneColorSpace",
         .binding = &shader_injection.scene_color_space,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
@@ -140,6 +149,17 @@ renodx::utils::settings::Settings settings = {
         .section = "Color",
         .tooltip = "Vanilla uses the game's wide-gamut UI matrix. BT.709 converts the UI exactly.",
         .labels = {"Vanilla", "BT.709"},
+    },
+    new renodx::utils::settings::Setting{
+        .key = "SDREOTFEmulation",
+        .binding = &shader_injection.sdr_eotf_emulation,
+        .value_type = renodx::utils::settings::SettingValueType::INTEGER,
+        .default_value = 1.f,
+        .label = "SDR EOTF Emulation",
+        .section = "Color",
+        .tooltip = "2.2 shows shadows and dark colors as the SDR picture looks on a gamma 2.2 display."
+                   " Off keeps the game's sRGB-relative values. Applies to the UI with UI Color Space BT.709.",
+        .labels = {"Off", "2.2"},
     },
     new renodx::utils::settings::Setting{
         .key = "UIBrightness",
@@ -176,8 +196,10 @@ void OnPresetOff() {
       {"ToneMapContrast", 50.f},
       {"ToneMapSaturation", 50.f},
       {"ToneMapVanillaContrast", 1.f},
+      {"HueClipEmulation", 0.f},
       {"SceneColorSpace", 0.f},
       {"UIColorSpace", 0.f},
+      {"SDREOTFEmulation", 0.f},
       {"UIBrightness", 100.f},
   });
 }
