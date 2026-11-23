@@ -37,7 +37,7 @@ layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
 #define RENODX_TONE_MAP_TYPE (RENODX_COMPARE_VANILLA ? RENODX_TONE_MAP_TYPE_VANILLA : shader_injection.tone_map_type)
 #define RENODX_UI_COLOR_SPACE (RENODX_COMPARE_VANILLA ? RENODX_COLOR_SPACE_VANILLA : shader_injection.ui_color_space)
 #define RENODX_UI_BRIGHTNESS (RENODX_COMPARE_VANILLA ? 1.0 : shader_injection.ui_brightness)
-#define RENODX_HUE_CLIP_EMULATION (RENODX_COMPARE_VANILLA ? 0.0 : shader_injection.hue_clip_emulation)
+#define RENODX_SDR_HUE_CHROMINANCE shader_injection.hue_clip_emulation
 #define RENODX_SCENE_GAMUT_SDR (shader_injection.scene_gamut != 0.0)
 #define RENODX_SDR_EOTF_EMULATION (!RENODX_COMPARE_VANILLA && shader_injection.sdr_eotf_emulation != 0.0)
 

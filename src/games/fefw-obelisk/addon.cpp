@@ -128,10 +128,11 @@ renodx::utils::settings::Settings settings = {
         .key = "HueClipEmulation",
         .binding = &shader_injection.hue_clip_emulation,
         .default_value = 100.f,
-        .label = "Hue Clip Emulation",
+        .label = "SDR Hue & Chrominance",
         .section = "Tone Mapping",
-        .tooltip = "Takes the hues of the SDR picture, where the game's curve clips each channel on its own,"
-                   " fading out from about 100 to 400 nits so highlights keep their own hues.",
+        .tooltip = "Takes the hues and saturation of the SDR picture, whose curve rolls off and clips each channel on"
+                   " its own (bright clouds turn white), fading out from about 100 to 400 nits so highlights keep"
+                   " their own colors.",
         .parse = [](float value) { return value * 0.01f; },
     },
     new renodx::utils::settings::Setting{

@@ -48,6 +48,13 @@ float HighlightWeight(vec3 color) {
     return smoothstep(0.5, 2.0, dot(color, vec3(0.2126, 0.7152, 0.0722)));
 }
 
+// CUSTOM: The SDR output's per-channel shoulder (1.0 = SDR white), fitted to SDR and HDR captures of the same
+// scene: linear up to 0.6, then an exponential roll-off toward 1.16 that the SDR output clips at 1.0.
+vec3 SdrShoulder(vec3 color) {
+    vec3 roll_off = 0.6 + 0.56 * (1.0 - exp((0.6 - color) * (0.65 / 0.56)));
+    return min(mix(color, roll_off, step(vec3(0.6), color)), vec3(1.0));
+}
+
 void main()
 {
     precise float _96 = 1.0 / gl_FragCoord.w;
@@ -171,13 +178,19 @@ void main()
             tonemapped = mix(vanilla, tonemapped, HighlightWeight(vanilla));
         }
     }
-    // Where the SDR picture is the reference: its gamut (negative BT.709 channels dropped) and its hues (each
-    // channel clipped at SDR white, 1.0 here). The highlights keep their own colors.
-    // The gamut comes last: the hue correction keeps chrominance and can leave BT.709.
+    // Where the SDR picture is the reference: its hues and saturation (each channel through the SDR shoulder),
+    // then its gamut (negative BT.709 channels dropped). The highlights keep their own colors.
     float sdr_weight = 1.0 - HighlightWeight(tonemapped);
-    if (RENODX_HUE_CLIP_EMULATION > 0.0) {
-        tonemapped = renodx::color::correct::HueOKLab(
-            tonemapped, clamp(vanilla, 0.0, 1.0), RENODX_HUE_CLIP_EMULATION * sdr_weight);
+    if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
+        vec3 sdr_reference = SdrShoulder(max(vanilla, vec3(0.0)));
+        // Brought to the result's luminance: the SDR picture's saturation, not its lower level.
+        float reference_luminance = dot(sdr_reference, vec3(0.2126, 0.7152, 0.0722));
+        if (reference_luminance > 0.0) {
+            sdr_reference *= dot(tonemapped, vec3(0.2126, 0.7152, 0.0722)) / reference_luminance;
+        }
+        float strength = RENODX_SDR_HUE_CHROMINANCE * sdr_weight;
+        tonemapped = renodx::color::correct::HueOKLab(tonemapped, sdr_reference, strength);
+        tonemapped = renodx::color::correct::ChrominanceOKLab(tonemapped, sdr_reference, strength);
     }
     if (RENODX_SCENE_GAMUT_SDR) {
         tonemapped = mix(tonemapped, max(tonemapped, vec3(0.0)), sdr_weight);
