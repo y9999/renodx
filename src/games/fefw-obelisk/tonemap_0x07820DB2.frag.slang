@@ -139,6 +139,11 @@ void main()
 
     // CUSTOM: Scene tone mapping and gamut; the original curve above is kept as the Vanilla path. The scene is
     // BT.2020 (the SDR tone map converts it to BT.709); the steps below work in BT.709 like the SDR picture.
+    float parameter_bit = FefwCurveParameterBit(gl_FragCoord.xy, fp_c3_1._m0[0], fp_c3_1._m0[2]);
+    if (parameter_bit >= 0.0) {
+        _32 = vec4(vec3(parameter_bit), 1.0);
+        return;
+    }
     if (RENODX_COMPARE_VANILLA) {
         _32 = vec4(vanilla_output, _42.w);
         return;

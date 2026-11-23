@@ -23,10 +23,11 @@ struct ShaderInjectData {
   float sdr_eotf_emulation;
   float ui_brightness;
   float compare_vanilla;
+  float show_curve_parameters;
 };
 
 #ifdef __cplusplus
-static_assert(sizeof(ShaderInjectData) == 14u * sizeof(float));
+static_assert(sizeof(ShaderInjectData) == 15u * sizeof(float));
 #else
 // Obelisk's Ryujinx-derived layouts use descriptor sets 0 to 3; the addon appends set 4.
 layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
@@ -54,6 +55,20 @@ const mat3 FEFW_BT709_FROM_BT2020 = mat3(
 
 // The game encodes SDR with the sRGB curve and SDR displays decode it with gamma 2.2: in linear BT.709,
 // relative to SDR white, this is the SDR picture as it was seen. Signs are kept for wide-gamut colors.
+// Diagnostic: the tone map's curve parameters (c[0].xyzw, c[2].xyzw) written into the picture as bits, so a
+// capture holds their exact values. 12-pixel blocks from (64, 64): one row per value, most significant bit
+// first, then a white and a black calibration row. Returns -1 outside the block area, else 0 or 1.
+float FefwCurveParameterBit(vec2 position, vec4 c0, vec4 c2) {
+  ivec2 block = ivec2(floor((position - 64.0) / 12.0));
+  if (shader_injection.show_curve_parameters == 0.0 || any(lessThan(block, ivec2(0)))
+      || block.x >= 32 || block.y >= 10) {
+    return -1.0;
+  }
+  if (block.y >= 8) return float(block.y == 8);
+  float value = block.y < 4 ? c0[block.y] : c2[block.y - 4];
+  return float((floatBitsToUint(value) >> uint(31 - block.x)) & 1u);
+}
+
 vec3 FefwEmulateGamma22(vec3 color) {
   vec3 magnitude = abs(color);
   vec3 encoded = mix(magnitude * 12.92, 1.055 * pow(magnitude, vec3(1.0 / 2.4)) - 0.055,

@@ -33,6 +33,7 @@ constexpr uint32_t COMPARE_VANILLA_KEY = 0x79u;
 renodx::mods::shader::CustomShaders custom_shaders = {
     CustomShaderEntry(0x07820DB2),  // Scene tone map (per-channel toe, linear, exponential shoulder)
     CustomShaderEntry(0xE0A1145E),  // UI composite onto the HDR scene
+    CustomShaderEntry(0x78FFAFDE),  // SDR scene tone map (diagnostic only)
 };
 
 bool IsPsychoVEnabled() {
@@ -185,6 +186,16 @@ renodx::utils::settings::Settings settings = {
         .section = "Options",
     },
     new renodx::utils::settings::Setting{
+        .key = "ShowCurveParameters",
+        .binding = &shader_injection.show_curve_parameters,
+        .value_type = renodx::utils::settings::SettingValueType::BOOLEAN,
+        .default_value = 0.f,
+        .label = "Show Curve Parameters",
+        .section = "Options",
+        .tooltip = "Diagnostic: writes the game's tone map parameters as black and white blocks in the top-left"
+                   " corner, in SDR and HDR, so a capture holds their exact values.",
+    },
+    new renodx::utils::settings::Setting{
         .value_type = renodx::utils::settings::SettingValueType::BUTTON,
         .label = "Reset All",
         .section = "Options",
@@ -195,6 +206,7 @@ renodx::utils::settings::Settings settings = {
 void OnPresetOff() {
   renodx::utils::settings::UpdateSettings({
       {"ToneMapType", 0.f},
+      {"ShowCurveParameters", 0.f},
       {"ToneMapPeakScale", 100.f},
       {"ToneMapExposure", 1.f},
       {"ToneMapHighlights", 50.f},
