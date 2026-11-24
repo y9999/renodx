@@ -196,6 +196,16 @@ renodx::utils::settings::Settings settings = {
                    " corner, in SDR and HDR, so a capture holds their exact values.",
     },
     new renodx::utils::settings::Setting{
+        .key = "ShowTonemapInput",
+        .binding = &shader_injection.show_tonemap_input,
+        .value_type = renodx::utils::settings::SettingValueType::BOOLEAN,
+        .default_value = 0.f,
+        .label = "Show Tone Map Input",
+        .section = "Options",
+        .tooltip = "Diagnostic: replaces the picture with the scene before the tone map (x / (1 + x) per channel),"
+                   " in SDR and HDR, so captures of both modes can be compared.",
+    },
+    new renodx::utils::settings::Setting{
         .value_type = renodx::utils::settings::SettingValueType::BUTTON,
         .label = "Reset All",
         .section = "Options",
@@ -207,6 +217,7 @@ void OnPresetOff() {
   renodx::utils::settings::UpdateSettings({
       {"ToneMapType", 0.f},
       {"ShowCurveParameters", 0.f},
+      {"ShowTonemapInput", 0.f},
       {"ToneMapPeakScale", 100.f},
       {"ToneMapExposure", 1.f},
       {"ToneMapHighlights", 50.f},

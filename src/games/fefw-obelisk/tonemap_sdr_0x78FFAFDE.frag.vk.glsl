@@ -3,7 +3,7 @@
 #extension GL_EXT_scalar_block_layout : require
 
 // SDR scene tone map (the SDR output's variant of 0x07820DB2: same curve, then BT.2020 -> BT.709 with negative
-// channels dropped). Replaced only to write the curve parameters for the diagnostic; otherwise unchanged.
+// channels dropped). Replaced only for the diagnostics; otherwise unchanged.
 #include "./shared.h"
 
 layout(set = 0, binding = 0, std140) uniform support_buffer
@@ -118,7 +118,12 @@ void main()
     _32.y = intBitsToFloat((!true) ? floatBitsToInt(min(0.0, _100)) : floatBitsToInt(max(0.0, _100)));
     _32.z = intBitsToFloat((!true) ? floatBitsToInt(min(0.0, _102)) : floatBitsToInt(max(0.0, _102)));
     _32.w = _42.w;
-    // CUSTOM: Diagnostic curve parameters.
+    // CUSTOM: Diagnostics (tone map input, curve parameters).
+    vec3 input_view = FefwTonemapInputView(gl_FragCoord.xy, _42.xyz);
+    if (input_view.x >= 0.0) {
+        _32 = vec4(input_view, 1.0);
+        return;
+    }
     float parameter_bit = FefwCurveParameterBit(gl_FragCoord.xy, fp_c3_1._m0[0], fp_c3_1._m0[2]);
     if (parameter_bit >= 0.0) {
         _32 = vec4(vec3(parameter_bit), 1.0);

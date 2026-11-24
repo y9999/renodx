@@ -24,10 +24,11 @@ struct ShaderInjectData {
   float ui_brightness;
   float compare_vanilla;
   float show_curve_parameters;
+  float show_tonemap_input;
 };
 
 #ifdef __cplusplus
-static_assert(sizeof(ShaderInjectData) == 15u * sizeof(float));
+static_assert(sizeof(ShaderInjectData) == 16u * sizeof(float));
 #else
 // Obelisk's Ryujinx-derived layouts use descriptor sets 0 to 3; the addon appends set 4.
 layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
@@ -67,6 +68,16 @@ float FefwCurveParameterBit(vec2 position, vec4 c0, vec4 c2) {
   if (block.y >= 8) return float(block.y == 8);
   float value = block.y < 4 ? c0[block.y] : c2[block.y - 4];
   return float((floatBitsToUint(value) >> uint(31 - block.x)) & 1u);
+}
+
+// Diagnostic: the tone map's input (the BT.2020 scene, before any curve) as x / (1 + x) per channel, so it
+// survives the SDR output's [0, 1] range and decodes back as y / (1 - y). A white square at (16..48, 16..48)
+// gives the output scale. Returns -1 when the diagnostic is off.
+vec3 FefwTonemapInputView(vec2 position, vec3 scene) {
+  if (shader_injection.show_tonemap_input == 0.0) return vec3(-1.0);
+  if (all(lessThan(abs(position - 32.0), vec2(16.0)))) return vec3(1.0);
+  vec3 x = max(scene, vec3(0.0));
+  return x / (1.0 + x);
 }
 
 vec3 FefwEmulateGamma22(vec3 color) {
