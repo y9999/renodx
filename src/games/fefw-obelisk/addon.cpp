@@ -137,6 +137,16 @@ renodx::utils::settings::Settings settings = {
         .parse = [](float value) { return value * 0.01f; },
     },
     new renodx::utils::settings::Setting{
+        .key = "WarmTones",
+        .binding = &shader_injection.warm_tones,
+        .default_value = 100.f,
+        .label = "Warm Tones",
+        .section = "Tone Mapping",
+        .tooltip = "How much reds, oranges, skin and yellows follow the SDR picture (100) or keep the colors of the game's"
+                   " HDR scene (0), which are more saturated.",
+        .parse = [](float value) { return value * 0.01f; },
+    },
+    new renodx::utils::settings::Setting{
         .key = "SceneGamut",
         .binding = &shader_injection.scene_gamut,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,

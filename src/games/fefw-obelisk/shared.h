@@ -18,6 +18,7 @@ struct ShaderInjectData {
   float tone_map_saturation;
   float tone_map_vanilla_contrast;
   float hue_clip_emulation;
+  float warm_tones;
   float scene_gamut;
   float ui_color_space;
   float sdr_eotf_emulation;
@@ -28,7 +29,7 @@ struct ShaderInjectData {
 };
 
 #ifdef __cplusplus
-static_assert(sizeof(ShaderInjectData) == 16u * sizeof(float));
+static_assert(sizeof(ShaderInjectData) == 17u * sizeof(float));
 #else
 // Obelisk's Ryujinx-derived layouts use descriptor sets 0 to 3; the addon appends set 4.
 layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
@@ -40,6 +41,7 @@ layout(set = 4, binding = 0, scalar) uniform FefwShaderConstants {
 #define RENODX_UI_COLOR_SPACE (RENODX_COMPARE_VANILLA ? RENODX_COLOR_SPACE_VANILLA : shader_injection.ui_color_space)
 #define RENODX_UI_BRIGHTNESS (RENODX_COMPARE_VANILLA ? 1.0 : shader_injection.ui_brightness)
 #define RENODX_SDR_HUE_CHROMINANCE shader_injection.hue_clip_emulation
+#define RENODX_WARM_TONES shader_injection.warm_tones
 #define RENODX_SCENE_GAMUT_SDR (shader_injection.scene_gamut != 0.0)
 #define RENODX_SDR_EOTF_EMULATION (!RENODX_COMPARE_VANILLA && shader_injection.sdr_eotf_emulation != 0.0)
 

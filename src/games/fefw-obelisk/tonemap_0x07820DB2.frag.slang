@@ -198,8 +198,12 @@ void main()
         }
     }
     // Where the SDR picture is the reference: its hues and saturation (the SDR scene through the SDR tone map: the
-    // curve with the SDR peak, then BT.709 without negative channels), then its gamut. The highlights keep their colors.
-    float sdr_weight = 1.0 - HighlightWeight(tonemapped);
+    // curve with the SDR peak, then BT.709 without negative channels), then its gamut. The highlights keep their
+    // colors, and Warm Tones can keep the HDR scene's colors for reds to yellows.
+    vec3 lab = renodx::color::oklab::from::BT709(tonemapped);
+    float hue = degrees(atan(lab.z, lab.y));
+    float warm = smoothstep(-15.0, 0.0, hue) * (1.0 - smoothstep(110.0, 125.0, hue));
+    float sdr_weight = (1.0 - HighlightWeight(tonemapped)) * mix(1.0, RENODX_WARM_TONES, warm);
     if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
         vec3 sdr_scene = max(SDR_SCENE_FROM_HDR_SCENE * _42.xyz, vec3(0.0));
         vec3 sdr_reference = clamp(
@@ -215,6 +219,16 @@ void main()
         float strength = RENODX_SDR_HUE_CHROMINANCE * sdr_weight;
         tonemapped = renodx::color::correct::HueOKLab(tonemapped, sdr_reference, strength);
         tonemapped = renodx::color::correct::ChrominanceOKLab(tonemapped, sdr_reference, strength);
+        // The SDR scene also draws warm hues toward gold, which the matrix leaves out: oranges toward yellow, yellows
+        // toward orange (tone map inputs of both modes: +3.5 to +5.7 degrees at OKLab hues 50 to 70, -4 to -10 at
+        // 80 to 100; skin of two scenes +2.8 to +4.5). A pull toward 75 degrees between 48 and 110, 0.25 from the
+        // orange side and 0.4 from the yellow side.
+        lab = renodx::color::oklab::from::BT709(tonemapped);
+        hue = degrees(atan(lab.z, lab.y));
+        float gold = smoothstep(48.0, 56.0, hue) * (1.0 - smoothstep(98.0, 110.0, hue));
+        float angle = radians(-(hue < 75.0 ? 0.25 : 0.4) * (hue - 75.0) * gold * strength);
+        lab.yz = mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * lab.yz;
+        tonemapped = renodx::color::bt709::from::OkLab(lab);
     }
     if (RENODX_SCENE_GAMUT_SDR) {
         tonemapped = mix(tonemapped, max(tonemapped, vec3(0.0)), sdr_weight);
