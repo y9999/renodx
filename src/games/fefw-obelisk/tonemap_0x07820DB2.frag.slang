@@ -59,9 +59,12 @@ float ToneCurve(float x, float peak) {
 }
 
 // CUSTOM: 0 up to about 100 nits (half of SDR white), 1 from about 400 nits (twice SDR white): where the SDR
-// picture stops being the reference and the HDR highlights begin.
+// picture stops being the reference and the HDR highlights begin. Saturated highlights such as fire are dim in
+// luminance but clip in the SDR picture, so their brightest channel also counts, from SDR white (about 200 nits)
+// to about 500 nits.
 float HighlightWeight(vec3 color) {
-    return smoothstep(0.5 * SDR_PEAK, 2.0 * SDR_PEAK, dot(color, vec3(0.2126, 0.7152, 0.0722)));
+    return max(smoothstep(0.5 * SDR_PEAK, 2.0 * SDR_PEAK, dot(color, vec3(0.2126, 0.7152, 0.0722))),
+               smoothstep(SDR_PEAK, 2.5 * SDR_PEAK, max(color.r, max(color.g, color.b))));
 }
 
 void main()
@@ -192,9 +195,17 @@ void main()
                 1.0, 100.0, 1.0, 1.0, 0, cone, vec3(0.18), vec3(min(midgray_out, 0.95 * peak)), 1.0, 1, 1.0, 1.0);
         }
         tonemapped *= fp_c3_1._m0[2].y;
-        // Vanilla+: the original curve where the SDR picture is the reference, PsychoV35 in the highlights.
+        // Vanilla+: the original curve where the SDR picture is the reference, PsychoV35's brightness in the
+        // highlights with the original curve's hues and saturation, which keep fire orange instead of whitening it.
         if (RENODX_TONE_MAP_TYPE == RENODX_TONE_MAP_TYPE_VANILLA_PLUS) {
-            tonemapped = mix(vanilla, tonemapped, HighlightWeight(vanilla));
+            float highlight = HighlightWeight(vanilla);
+            tonemapped = mix(vanilla, tonemapped, highlight);
+            float vanilla_luminance = dot(vanilla, vec3(0.2126, 0.7152, 0.0722));
+            if (vanilla_luminance > 0.0) {
+                vec3 reference = vanilla * (dot(tonemapped, vec3(0.2126, 0.7152, 0.0722)) / vanilla_luminance);
+                tonemapped = renodx::color::correct::HueOKLab(tonemapped, reference, highlight);
+                tonemapped = renodx::color::correct::ChrominanceOKLab(tonemapped, reference, highlight);
+            }
         }
     }
     // Where the SDR picture is the reference: its hues and saturation (the SDR scene through the SDR tone map: the
