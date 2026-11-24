@@ -37,6 +37,14 @@ layout(location = 0) out vec4 _32;
 const float SDR_PEAK = 4.0 / 3.0;
 const float SDR_SCALE = 0.75;
 
+// CUSTOM: The game renders a slightly different scene for SDR output: the tone map inputs of both modes, captured
+// at the same moment (Show Tone Map Input), differ by about this BT.2020 matrix (fitted with every hue weighted
+// equally; SDR is 13 to 17% less saturated in warm colors). GLSL column-major.
+const mat3 SDR_SCENE_FROM_HDR_SCENE = mat3(
+    0.81696, 0.02310, 0.01241,
+    0.08179, 0.88499, 0.04414,
+    0.01453, 0.02194, 0.91681);
+
 float ToneCurve(float x, float peak) {
     vec4 c0 = fp_c3_1._m0[0];  // slope, toe end, shoulder start fraction, toe power
     float toe_t = clamp(x / c0.y, 0.0, 1.0);
@@ -189,13 +197,15 @@ void main()
             tonemapped = mix(vanilla, tonemapped, HighlightWeight(vanilla));
         }
     }
-    // Where the SDR picture is the reference: its hues and saturation (the SDR tone map: the curve with the SDR
-    // peak and scale, then BT.709 without negative channels), then its gamut. The highlights keep their colors.
+    // Where the SDR picture is the reference: its hues and saturation (the SDR scene through the SDR tone map: the
+    // curve with the SDR peak, then BT.709 without negative channels), then its gamut. The highlights keep their colors.
     float sdr_weight = 1.0 - HighlightWeight(tonemapped);
     if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
+        vec3 sdr_scene = max(SDR_SCENE_FROM_HDR_SCENE * _42.xyz, vec3(0.0));
         vec3 sdr_reference = clamp(
             FEFW_BT709_FROM_BT2020
-                * vec3(ToneCurve(_44, SDR_PEAK), ToneCurve(_46, SDR_PEAK), ToneCurve(_48, SDR_PEAK)),
+                * vec3(ToneCurve(sdr_scene.x, SDR_PEAK), ToneCurve(sdr_scene.y, SDR_PEAK),
+                       ToneCurve(sdr_scene.z, SDR_PEAK)),
             0.0, SDR_PEAK);
         // Brought to the result's luminance: the SDR picture's saturation, not its lower level.
         float reference_luminance = dot(sdr_reference, vec3(0.2126, 0.7152, 0.0722));
