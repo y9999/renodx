@@ -214,7 +214,20 @@ void main()
     vec3 lab = renodx::color::oklab::from::BT709(tonemapped);
     float hue = degrees(atan(lab.z, lab.y));
     float warm = smoothstep(-15.0, 0.0, hue) * (1.0 - smoothstep(110.0, 125.0, hue));
-    float sdr_weight = (1.0 - HighlightWeight(tonemapped)) * mix(1.0, RENODX_WARM_TONES, warm);
+    // Next to a highlight the SDR picture clips too, so its neighbors within about 4 pixels (at 2160p) count as
+    // highlight: blurred edges against a bright sky would otherwise take the clipped SDR colors and draw a cyan
+    // outline.
+    float highlight = HighlightWeight(tonemapped);
+    vec2 texture_size = vec2(textureSize(fp_t_tcb_8, 0));
+    vec2 tap_step = max(4.0 * texture_size.y / 2160.0, 1.0) / texture_size;
+    for (int i = 0; i < 8; ++i) {
+        float angle = float(i) * 0.78539816;
+        vec3 tap = texture(fp_t_tcb_8, vec2(_105, _113) + vec2(cos(angle), sin(angle)) * tap_step).xyz;
+        highlight = max(highlight, HighlightWeight(FEFW_BT709_FROM_BT2020
+            * (vec3(ToneCurve(tap.x, fp_c3_1._m0[2].x), ToneCurve(tap.y, fp_c3_1._m0[2].x),
+                    ToneCurve(tap.z, fp_c3_1._m0[2].x)) * fp_c3_1._m0[2].y)));
+    }
+    float sdr_weight = (1.0 - highlight) * mix(1.0, RENODX_WARM_TONES, warm);
     if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
         vec3 sdr_scene = max(SDR_SCENE_FROM_HDR_SCENE * _42.xyz, vec3(0.0));
         vec3 sdr_reference = clamp(
