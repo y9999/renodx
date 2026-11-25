@@ -61,10 +61,10 @@ float ToneCurve(float x, float peak) {
 // CUSTOM: 0 up to about 100 nits (half of SDR white), 1 from about 400 nits (twice SDR white): where the SDR
 // picture stops being the reference and the HDR highlights begin. Saturated highlights such as fire are dim in
 // luminance but clip in the SDR picture, so their brightest channel also counts, from SDR white (about 200 nits)
-// to about 500 nits.
+// to twice SDR white.
 float HighlightWeight(vec3 color) {
     return max(smoothstep(0.5 * SDR_PEAK, 2.0 * SDR_PEAK, dot(color, vec3(0.2126, 0.7152, 0.0722))),
-               smoothstep(SDR_PEAK, 2.5 * SDR_PEAK, max(color.r, max(color.g, color.b))));
+               smoothstep(SDR_PEAK, 2.0 * SDR_PEAK, max(color.r, max(color.g, color.b))));
 }
 
 void main()

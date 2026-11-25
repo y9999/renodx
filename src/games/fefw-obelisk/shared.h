@@ -82,11 +82,12 @@ vec3 FefwTonemapInputView(vec2 position, vec3 scene) {
   return x / (1.0 + x);
 }
 
+// Up to SDR white only: above it the SDR picture clips, and a per-channel curve there would shift highlight hues.
 vec3 FefwEmulateGamma22(vec3 color) {
   vec3 magnitude = abs(color);
-  vec3 encoded = mix(magnitude * 12.92, 1.055 * pow(magnitude, vec3(1.0 / 2.4)) - 0.055,
-                     step(vec3(0.0031308), magnitude));
-  return sign(color) * pow(encoded, vec3(2.2));
+  vec3 sdr = min(magnitude, vec3(1.0));
+  vec3 encoded = mix(sdr * 12.92, 1.055 * pow(sdr, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), sdr));
+  return sign(color) * (pow(encoded, vec3(2.2)) + magnitude - sdr);
 }
 #endif
 
