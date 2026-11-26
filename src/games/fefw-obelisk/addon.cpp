@@ -147,6 +147,19 @@ renodx::utils::settings::Settings settings = {
         .parse = [](float value) { return value * 0.01f; },
     },
     new renodx::utils::settings::Setting{
+        .key = "HighlightColors",
+        .binding = &shader_injection.highlight_colors,
+        .value_type = renodx::utils::settings::SettingValueType::INTEGER,
+        .default_value = 0.f,
+        .label = "Highlight Colors",
+        .section = "Tone Mapping",
+        .tooltip = "HDR keeps the colors of the game's HDR output in the highlights (from about 100 to 400 nits), where the"
+                   " SDR picture clips: fire stays orange. SDR follows the SDR picture everywhere, as most RenoDX mods do:"
+                   " fire turns pale yellow as in SDR.",
+        .labels = {"HDR", "SDR"},
+        .is_enabled = []() { return shader_injection.hue_clip_emulation != 0.f; },
+    },
+    new renodx::utils::settings::Setting{
         .key = "SceneGamut",
         .binding = &shader_injection.scene_gamut,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
