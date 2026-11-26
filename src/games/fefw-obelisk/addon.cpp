@@ -163,11 +163,11 @@ renodx::utils::settings::Settings settings = {
         .key = "SceneGamut",
         .binding = &shader_injection.scene_gamut,
         .value_type = renodx::utils::settings::SettingValueType::INTEGER,
-        .default_value = 1.f,
+        .default_value = 0.f,
         .label = "Scene Gamut",
         .section = "Color",
-        .tooltip = "The scene is rendered in BT.2020. BT.709 (SDR) drops colors past BT.709 as the SDR tone map does,"
-                   " fading out from about 100 to 400 nits. BT.2020 keeps them, as the game's HDR output does.",
+        .tooltip = "The scene is rendered in BT.2020. BT.2020 keeps the colors past BT.709 (deep blue skies) with the SDR"
+                   " grade. BT.709 (SDR) drops them as the SDR tone map does, below the highlights.",
         .labels = {"BT.2020", "BT.709 (SDR)"},
     },
     new renodx::utils::settings::Setting{

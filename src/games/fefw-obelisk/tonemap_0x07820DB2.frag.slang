@@ -209,7 +209,7 @@ void main()
         }
     }
     // The SDR picture's hues and saturation: the SDR scene (the game's SDR grade) through the SDR tone map (the curve
-    // with the SDR peak, then BT.709 without negative channels). Where the SDR picture clips, the same SDR scene through
+    // with the SDR peak, then BT.709, without negative channels with Scene Gamut BT.709). Where the SDR picture clips, the same SDR scene through
     // the curve with the HDR peak, without the BT.709 clip. Warm Tones can keep the HDR scene's colors for reds to
     // yellows.
     vec3 lab = renodx::color::oklab::from::BT709(tonemapped);
@@ -236,11 +236,15 @@ void main()
     float sdr_weight = (1.0 - highlight) * grade_weight;
     if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
         vec3 sdr_scene = max(SDR_SCENE_FROM_HDR_SCENE * _42.xyz, vec3(0.0));
-        vec3 sdr_reference = clamp(
+        // Scene Gamut BT.2020 keeps the reference's colors past BT.709: the SDR grade without the SDR gamut clip.
+        vec3 sdr_reference = min(
             FEFW_BT709_FROM_BT2020
                 * vec3(ToneCurve(sdr_scene.x, SDR_PEAK), ToneCurve(sdr_scene.y, SDR_PEAK),
                        ToneCurve(sdr_scene.z, SDR_PEAK)),
-            0.0, SDR_PEAK);
+            vec3(SDR_PEAK));
+        if (RENODX_SCENE_GAMUT_SDR) {
+            sdr_reference = max(sdr_reference, vec3(0.0));
+        }
         if (highlight > 0.0) {
             vec3 extended = FEFW_BT709_FROM_BT2020
                 * (vec3(ToneCurve(sdr_scene.x, fp_c3_1._m0[2].x), ToneCurve(sdr_scene.y, fp_c3_1._m0[2].x),
