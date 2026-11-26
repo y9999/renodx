@@ -153,9 +153,9 @@ renodx::utils::settings::Settings settings = {
         .default_value = 0.f,
         .label = "Highlight Colors",
         .section = "Tone Mapping",
-        .tooltip = "HDR keeps the colors of the game's HDR output in the highlights (from about 100 to 400 nits), where the"
-                   " SDR picture clips: fire stays orange. SDR follows the SDR picture everywhere, as most RenoDX mods do:"
-                   " fire turns pale yellow as in SDR.",
+        .tooltip = "Where the SDR picture clips (from about 100 to 400 nits). HDR: the SDR scene goes through the game's"
+                   " curve with the HDR peak, so fire keeps the SDR grade and stays orange. SDR: the clipped SDR picture,"
+                   " as most RenoDX mods do through their hue correction; fire turns pale yellow as in SDR.",
         .labels = {"HDR", "SDR"},
         .is_enabled = []() { return shader_injection.hue_clip_emulation != 0.f; },
     },

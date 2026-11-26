@@ -208,15 +208,17 @@ void main()
             }
         }
     }
-    // Where the SDR picture is the reference: its hues and saturation (the SDR scene through the SDR tone map: the
-    // curve with the SDR peak, then BT.709 without negative channels), then its gamut. The highlights can keep their
-    // colors, and Warm Tones can keep the HDR scene's colors for reds to yellows.
+    // The SDR picture's hues and saturation: the SDR scene (the game's SDR grade) through the SDR tone map (the curve
+    // with the SDR peak, then BT.709 without negative channels). Where the SDR picture clips, the same SDR scene through
+    // the curve with the HDR peak, without the BT.709 clip. Warm Tones can keep the HDR scene's colors for reds to
+    // yellows.
     vec3 lab = renodx::color::oklab::from::BT709(tonemapped);
     float hue = degrees(atan(lab.z, lab.y));
     float warm = smoothstep(-15.0, 0.0, hue) * (1.0 - smoothstep(110.0, 125.0, hue));
-    // Highlight Colors HDR: the highlights keep the HDR colors. Next to a highlight the SDR picture clips too, so its
-    // neighbors within about 4 pixels (at 2160p) count as highlight: blurred edges against a bright sky would
-    // otherwise take the clipped SDR colors and draw a cyan outline. Highlight Colors SDR: the SDR picture everywhere.
+    // Highlight Colors HDR: the highlights take the SDR scene through the HDR peak. Next to a highlight the SDR
+    // picture clips too, so its neighbors within about 4 pixels (at 2160p) count as highlight: blurred edges against a
+    // bright sky would otherwise take the clipped SDR colors and draw a cyan outline. Highlight Colors SDR: the clipped
+    // SDR picture everywhere.
     float highlight = 0.0;
     if (!RENODX_HIGHLIGHT_COLORS_SDR) {
         highlight = HighlightWeight(tonemapped);
@@ -230,7 +232,8 @@ void main()
                         ToneCurve(tap.z, fp_c3_1._m0[2].x)) * fp_c3_1._m0[2].y)));
         }
     }
-    float sdr_weight = (1.0 - highlight) * mix(1.0, RENODX_WARM_TONES, warm);
+    float grade_weight = mix(1.0, RENODX_WARM_TONES, warm);
+    float sdr_weight = (1.0 - highlight) * grade_weight;
     if (RENODX_SDR_HUE_CHROMINANCE > 0.0) {
         vec3 sdr_scene = max(SDR_SCENE_FROM_HDR_SCENE * _42.xyz, vec3(0.0));
         vec3 sdr_reference = clamp(
@@ -238,12 +241,18 @@ void main()
                 * vec3(ToneCurve(sdr_scene.x, SDR_PEAK), ToneCurve(sdr_scene.y, SDR_PEAK),
                        ToneCurve(sdr_scene.z, SDR_PEAK)),
             0.0, SDR_PEAK);
+        if (highlight > 0.0) {
+            vec3 extended = FEFW_BT709_FROM_BT2020
+                * (vec3(ToneCurve(sdr_scene.x, fp_c3_1._m0[2].x), ToneCurve(sdr_scene.y, fp_c3_1._m0[2].x),
+                        ToneCurve(sdr_scene.z, fp_c3_1._m0[2].x)) * fp_c3_1._m0[2].y);
+            sdr_reference = mix(sdr_reference, extended, highlight);
+        }
         // Brought to the result's luminance: the SDR picture's saturation, not its lower level.
         float reference_luminance = dot(sdr_reference, vec3(0.2126, 0.7152, 0.0722));
         if (reference_luminance > 0.0) {
             sdr_reference *= dot(tonemapped, vec3(0.2126, 0.7152, 0.0722)) / reference_luminance;
         }
-        float strength = RENODX_SDR_HUE_CHROMINANCE * sdr_weight;
+        float strength = RENODX_SDR_HUE_CHROMINANCE * grade_weight;
         tonemapped = renodx::color::correct::HueOKLab(tonemapped, sdr_reference, strength);
         tonemapped = renodx::color::correct::ChrominanceOKLab(tonemapped, sdr_reference, strength);
         // The SDR scene also draws warm hues toward gold, which the matrix leaves out: oranges toward yellow, yellows
